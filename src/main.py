@@ -1,27 +1,49 @@
-from kelly_calculator import kelly_bet_size
-from predictor import predict_win_probability, expected_value
+\"\"\"Main script to load CSV, generate predictions, compute EV and Kelly bet sizes.\"\"\"
+        from src.kelly_calculator import kelly_bet_size, kelly_fraction
+        from src.predictor import predict_win_probability, expected_value
+        from src.utils import load_games_from_csv, implied_prob_from_decimal
+        from src.models import Recommendation
+        import pprint
 
-if __name__ == "__main__":
-    # Example matchup: Washington Commanders vs Philadelphia Eagles
-    team = "Washington Commanders"
-    opponent = "Philadelphia Eagles"
-    team_rating = 70.5
-    opponent_rating = 75.0
-    home_field_adv = 0  # Commanders away
+        def analyze_games(csv_path='data/example_bet_data.csv'):
+            games = load_games_from_csv(csv_path)
+            recs = []
+            for g in games:
+                # Determine predicted probability using available ratings
+                if g.team_rating is None or g.opponent_rating is None:
+                    # If ratings missing, skip or fall back to implied — here we skip
+                    print(f\"Skipping {g.team} vs {g.opponent} because ratings are missing.\")
+                    continue
+                pred = predict_win_probability(g.team_rating, g.opponent_rating, home_field_adv=0.0)
+                dec = g.decimal_odds or  None
+                if dec is None:
+                    print(f\"Skipping {g.team} vs {g.opponent} because decimal odds are missing.\")
+                    continue
+                sportsbook_prob = implied_prob_from_decimal(dec)
+                ev = expected_value(pred, dec)
+                bet_amount, f = kelly_bet_size(pred, dec, g.bankroll or 0.0, g.kelly_adj or 0.5)
+                rec = Recommendation(
+                    team=g.team,
+                    opponent=g.opponent,
+                    predicted_win_prob=pred,
+                    sportsbook_implied_prob=sportsbook_prob,
+                    ev=ev,
+                    kelly_fraction=f,
+                    bet_amount=bet_amount
+                )
+                recs.append(rec)
+            return recs
 
-    bankroll = 25000
-    adj_factor = 0.5
-    decimal_odds = 1.51
-
-    # Step 1: Predict win probability
-    predicted_win_prob = predict_win_probability(team_rating, opponent_rating, home_field_adv)
-    print(f"Predicted Win Probability: {predicted_win_prob * 100:.2f}%")
-
-    # Step 2: Calculate Expected Value
-    ev_percent = expected_value(predicted_win_prob, decimal_odds)
-    print(f"Expected Value: {ev_percent:.2f}%")
-
-    # Step 3: Kelly Criterion Bet Size
-    bet_amount, kelly_fraction = kelly_bet_size(predicted_win_prob, decimal_odds, bankroll, adj_factor)
-    print(f"Kelly Fraction: {kelly_fraction:.2%}")
-    print(f"Recommended Bet Size: ${bet_amount:,.2f}")
+        if __name__ == '__main__':
+            recs = analyze_games('data/example_bet_data.csv')
+            pp = pprint.PrettyPrinter(indent=2)
+            for r in recs:
+                print('------------------------------')
+                pp.pprint({
+                    'Matchup': f\"{r.team} vs {r.opponent}\",
+                    'Predicted Win %': f\"{r.predicted_win_prob*100:.2f}%\",
+                    'Sportsbook Implied %': f\"{(r.sportsbook_implied_prob or 0)*100:.2f}%\",
+                    'Expected Value %': f\"{r.ev*100:.2f}%\",
+                    'Kelly Fraction': f\"{r.kelly_fraction:.4f}\",
+                    'Recommended Bet $': f\"${r.bet_amount:,.2f}\"
+                })
