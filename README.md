@@ -4,7 +4,13 @@ This project combines **sports betting analytics** with the **Kelly Criterion** 
 
 It’s designed for **NFL**, but you can easily adapt it to other sports.
 
----
+## Quick start
+
+        1. Create a Python environment (Python 3.8+ recommended)
+        2. Install dependencies: `pip install -r requirements.txt`
+        3. Run the example: `python src/main.py`
+
+        The `data/example_bet_data.csv` file contains a sample matchup used by `src/main.py`.
 
 ## ⚙️ Core Formula
 
